@@ -9,6 +9,9 @@ export async function GET() {
       (a, b) => b.createdAt - a.createdAt,
     ),
     answers: [...store.answers].sort((a, b) => b.createdAt - a.createdAt),
+    conversations: [...store.conversations].sort(
+      (a, b) => b.createdAt - a.createdAt,
+    ),
   });
 }
 

@@ -71,12 +71,16 @@ export default function LandingPage() {
           <li><b>Grounded in this activity sheet.</b> Every reply is retrieved from the teacher's document (RAG on pgvector). Chunk IDs are shown under each reply.</li>
           <li><b>Multi-modal input.</b> Type, dictate with 🎤, snap a photo with 📷, or drop/paste an image.</li>
           <li><b>Flags misconceptions.</b> If you say something the teacher's misconception catalog matches, it's sent to the teacher dashboard with a draft feedback sentence to approve.</li>
+          <li><b>Formative assessment for teachers.</b> The teacher dashboard can analyze your responses, chat, and experiment evidence and draft coaching recommendations — never an automatic grade.</li>
         </ul>
       </div>
 
-      <div className="row" style={{ marginTop: 28, justifyContent: "center" }}>
+      <div className="row" style={{ marginTop: 16, justifyContent: "center", gap: 12 }}>
         <Link href="/activity" className="btn" style={{ padding: "14px 28px", fontSize: 16 }}>
           Start activity →
+        </Link>
+        <Link href="/teacher" className="btn ghost" style={{ padding: "14px 20px", fontSize: 15 }}>
+          Teacher dashboard
         </Link>
       </div>
     </div>

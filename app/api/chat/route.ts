@@ -144,6 +144,11 @@ export async function POST(req: NextRequest) {
   });
 
   const key = process.env.OPENROUTER_API_KEY || process.env.ANTHROPIC_API_KEY;
+  // Free OpenRouter models only (slug must end with :free).
+  const model =
+    process.env.CURICO_MODEL && process.env.CURICO_MODEL.endsWith(":free")
+      ? process.env.CURICO_MODEL
+      : "dots-studio/dots-3-note-preview:free";
   let reply: string;
   let meta: any = null;
 
@@ -171,7 +176,7 @@ export async function POST(req: NextRequest) {
         "X-Title": "Curico Classroom PoC",
       },
       body: JSON.stringify({
-        model: process.env.CURICO_MODEL || "z-ai/glm-5.2:free",
+        model,
         max_tokens: 1200,
         reasoning: { enabled: false },
         messages: [
@@ -207,7 +212,7 @@ export async function POST(req: NextRequest) {
           "X-Title": "Curico Classroom PoC",
         },
         body: JSON.stringify({
-          model: process.env.CURICO_MODEL || "z-ai/glm-5.2:free",
+          model,
           max_tokens: 400,
           messages: [
             {
@@ -229,6 +234,26 @@ export async function POST(req: NextRequest) {
       }
     }
   }
+
+  // Persist conversation evidence for formative assessment (teacher drafts).
+  const now = Date.now();
+  store.conversations.push({
+    id: `cv_${now}_u`,
+    studentId: body.studentId,
+    stepId: body.stepId,
+    role: "user",
+    content: last.content,
+    hasImage: Boolean(body.image),
+    createdAt: now,
+  });
+  store.conversations.push({
+    id: `cv_${now}_a`,
+    studentId: body.studentId,
+    stepId: body.stepId,
+    role: "assistant",
+    content: reply,
+    createdAt: now + 1,
+  });
 
   if (meta && meta.misconception_id) {
     store.misconceptions.push({

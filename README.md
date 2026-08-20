@@ -72,7 +72,7 @@ npm run dev
 
 - **http://localhost:3000/** — activity landing page (title, learning goal, materials, safety, "Start activity" button)
 - **http://localhost:3000/activity** — the step-by-step lab (18 steps, chat helper, dev panel)
-- **http://localhost:3000/teacher** — teacher dashboard (auto-polls every 3 s, shows flagged misconceptions with approve/edit/reject and the raw answer feed)
+- **http://localhost:3000/teacher** — teacher dashboard (auto-polls every 3 s): misconception queue, learning-evidence feed, and AI-assisted formative assessment drafts (approve / edit / reject; never auto-grades)
 
 ---
 
@@ -89,6 +89,12 @@ Multimodal helper:
 - **📷** — open the live camera in the chat panel, capture a frame.
 - **📎** — attach any local image file.
 - **Drag-and-drop** an image onto the chat card, or **paste** a screenshot (Cmd/Ctrl+V).
+
+Formative assessment (teacher view):
+1. On `/activity`, record a few answers (include a **number** or **photo** step) and ask the helper one question.
+2. Open `/teacher` → **Generate recommendations**.
+3. Review the per-student draft (summary, strengths, growth areas, prioritized recommendations grounded in evidence).
+4. **Approve**, **save edits**, or **reject**. Nothing is auto-graded or applied as a learning-outcome decision.
 
 Dev panel (bottom-right ⚙ button, on `/activity`):
 - **Unlock all steps** — click any step in the timeline regardless of progress.
@@ -108,8 +114,9 @@ Browser (Next.js App Router client components)
    └── /teacher         → dashboard (app/teacher/page.tsx)
                              ↑ polls /api/misconceptions every 3s
 Next.js server routes
-   ├── /api/chat        → RAG + OpenRouter, parses <<META>> misconception line
-   └── /api/misconceptions → in-memory queue (flags + latest answers)
+   ├── /api/chat        → RAG + OpenRouter, parses <<META>> misconception line, stores conversation turns
+   ├── /api/misconceptions → in-memory queue (flags + answers + conversations)
+   └── /api/formative-assessment → analyzes evidence → teacher-only recommendation drafts (no grades)
 RAG
    ├── data/activity.ts       → 23 structured chunks + step definitions
    ├── data/activity_guide.md → long-form teacher's guide, chunked at seed time
@@ -157,14 +164,15 @@ Editing the activity content:
 
 ## What's NOT in the PoC
 
-Per the proposal these are separate components; only the two the client asked to demo are built end-to-end:
+Per the proposal these are separate components; only the demo slices below are built end-to-end:
 
 - Teacher classroom management (rosters, join codes, schedule)
-- Full learning-analytics dashboard (only a minimal flag queue is shown)
+- Full learning-analytics dashboard (formative drafts + flag/evidence feeds are present; not a full analytics suite)
 - Auth / RBAC
 - Safety content filter on the LLM
 - WebSocket real-time — teacher view polls every 3 s
-- Persistent misconception store — the flag queue lives in a Node in-memory map; restart clears it
+- Persistent store — flags, answers, conversations, and formative drafts live in a Node in-memory map; restart clears them
+- Automatic grading / outcome decisions — intentionally out of scope; formative drafts never assign grades
 
 ---
 
@@ -177,4 +185,6 @@ Per the proposal these are separate components; only the two the client asked to
 - `lib/embed.ts` — local sentence embeddings (`@xenova/transformers`)
 - `app/api/chat/route.ts` — Socratic system prompt, RAG assembly, misconception parse, OpenRouter call, empty-reply retry
 - `app/activity/page.tsx` — student interface (timeline, step blocks, chat with camera/mic/attach, dev panel, brief modal, localStorage persistence)
-- `app/teacher/page.tsx` — flag queue + answer feed
+- `app/teacher/page.tsx` — flag queue + evidence feed + formative assessment drafts
+- `lib/formative.ts` — evidence aggregation + teacher-only recommendation generation (stub or LLM)
+- `app/api/formative-assessment/route.ts` — GET/POST/PATCH for formative drafts

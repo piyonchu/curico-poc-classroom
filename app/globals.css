@@ -225,6 +225,49 @@ textarea.input { min-height: 90px; resize: vertical; }
 .mc-item .feedback { color: #3a4256; }
 .mc-item .actions { margin-top: 6px; display: flex; gap: 6px; }
 
+.banner-warn {
+  background: #fff8f0; border: 1px solid #f2d0a8; color: #5c3b12;
+  padding: 12px 14px; border-radius: 10px; margin-bottom: 16px; font-size: 14px;
+}
+.fa-panel { margin-bottom: 20px; }
+.fa-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+.fa-head h2 { margin: 0 0 4px; }
+.evidence-strip { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.evidence-chip {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  background: #f6f7fb; border: 1px solid #e4e7f0; border-radius: 8px;
+  padding: 8px 10px; font-size: 12px; color: #3a4256;
+}
+.fa-draft {
+  border: 1px solid #e4e7f0; border-radius: 10px; padding: 14px;
+  margin: 14px 0 0; background: #fafbff;
+}
+.fa-draft-top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.fa-summary { margin: 0 0 10px; font-size: 14px; }
+.fa-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px; }
+@media (max-width: 700px) { .fa-cols { grid-template-columns: 1fr; } }
+.fa-cols ul { margin: 4px 0 0; padding-left: 18px; font-size: 14px; }
+.fa-rec {
+  border-left: 3px solid #4a5cff; background: #f4f8ff; padding: 8px 12px;
+  margin: 8px 0; border-radius: 6px; font-size: 14px;
+}
+.fa-notes { display: block; margin-top: 10px; }
+.fa-notes textarea {
+  width: 100%; margin-top: 4px; padding: 8px 10px; border-radius: 8px;
+  border: 1px solid #d5d9e5; font: inherit; resize: vertical;
+}
+.fa-draft .actions { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+.subh { font-size: 14px; margin: 16px 0 6px; color: #3a4256; }
+.error { color: #a83030; font-size: 14px; }
+.pill.status-draft { background: #eef0f7; color: #3a4256; }
+.pill.status-approved { background: #e5f6ec; color: #1a7f3a; }
+.pill.status-edited { background: #eef4ff; color: #2f4dbf; }
+.pill.status-rejected { background: #ffe5e5; color: #a83030; }
+.pill.pri-high { background: #fff2ec; color: #b0480e; }
+.pill.pri-medium { background: #fff7e1; color: #8a6a12; }
+.pill.pri-low { background: #eef0f7; color: #3a4256; }
+.label { font-weight: 600; }
+
 .thumb { max-height: 120px; border-radius: 8px; border: 1px solid #d5d9e5; }
 .mic { border: 1px solid #d5d9e5; background: white; border-radius: 8px; padding: 8px 12px; cursor: pointer; font-size: 14px; }
 .mic.rec { background: #ffe5e5; border-color: #f28c8c; color: #a83030; }
