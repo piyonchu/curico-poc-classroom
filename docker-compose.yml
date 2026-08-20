@@ -1,0 +1,20 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: curico
+      POSTGRES_PASSWORD: curico
+      POSTGRES_DB: curico
+    ports:
+      - "5433:5432"
+    volumes:
+      - curico_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U curico -d curico"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  curico_pgdata:
