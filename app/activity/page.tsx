@@ -78,6 +78,9 @@ export default function StudentPage() {
 	const [devOpen, setDevOpen] = useState(false);
 	const [unlockAll, setUnlockAll] = useState(false);
 	const [briefOpen, setBriefOpen] = useState(false);
+	const [ttsEnabled, setTtsEnabled] = useState(false);
+	const [speakingIdx, setSpeakingIdx] = useState<number | null>(null);
+	const lastSpokenRef = useRef<string>("");
 	const logRef = useRef<HTMLDivElement>(null);
 	const recogRef = useRef<any>(null);
 	const chatFileRef = useRef<HTMLInputElement>(null);
@@ -127,6 +130,70 @@ export default function StudentPage() {
 	useEffect(() => {
 		logRef.current?.scrollTo({ top: 999999, behavior: "smooth" });
 	}, [chat.length, step.id]);
+
+	// TTS: hydrate the toggle from its own key so it survives resetActivity.
+	useEffect(() => {
+		try {
+			const v = localStorage.getItem("curico.tts.enabled.v1");
+			if (v === "1") setTtsEnabled(true);
+		} catch {}
+	}, []);
+	useEffect(() => {
+		try {
+			localStorage.setItem("curico.tts.enabled.v1", ttsEnabled ? "1" : "0");
+		} catch {}
+	}, [ttsEnabled]);
+
+	function ttsAvailable() {
+		return typeof window !== "undefined" && "speechSynthesis" in window;
+	}
+	function stripForSpeech(s: string) {
+		return s
+			.replace(/<<META>>[\s\S]*$/m, "")
+			.replace(/```[\s\S]*?```/g, "")
+			.replace(/`([^`]+)`/g, "$1")
+			.replace(/[*_#>]+/g, "")
+			.trim();
+	}
+	function stopSpeaking() {
+		if (!ttsAvailable()) return;
+		window.speechSynthesis.cancel();
+		setSpeakingIdx(null);
+	}
+	function speak(text: string, idx: number | null = null) {
+		if (!ttsAvailable()) return;
+		const clean = stripForSpeech(text);
+		if (!clean) return;
+		window.speechSynthesis.cancel();
+		const u = new SpeechSynthesisUtterance(clean);
+		u.rate = 1.0;
+		u.pitch = 1.0;
+		u.onend = () => setSpeakingIdx((cur) => (cur === idx ? null : cur));
+		u.onerror = () => setSpeakingIdx((cur) => (cur === idx ? null : cur));
+		setSpeakingIdx(idx);
+		window.speechSynthesis.speak(u);
+	}
+
+	// Auto-speak the latest assistant message when TTS is on.
+	useEffect(() => {
+		if (!ttsEnabled || !ttsAvailable()) return;
+		const last = chat[chat.length - 1];
+		if (!last || last.role !== "assistant") return;
+		const key = step.id + ":" + (chat.length - 1) + ":" + last.content;
+		if (lastSpokenRef.current === key) return;
+		lastSpokenRef.current = key;
+		speak(last.content, chat.length - 1);
+	}, [chat.length, ttsEnabled, step.id]);
+
+	// Stop any speech when leaving the page / switching steps.
+	useEffect(() => {
+		return () => {
+			if (ttsAvailable()) window.speechSynthesis.cancel();
+		};
+	}, []);
+	useEffect(() => {
+		stopSpeaking();
+	}, [step.id]);
 
 	const doneSteps = useMemo(() => {
 		const s = new Set<string>();
@@ -427,7 +494,30 @@ export default function StudentPage() {
 							if (f) await attachFromFile(f);
 						}}
 					>
-						<h2>Ask the AI helper</h2>
+						<div
+							className="row"
+							style={{
+								justifyContent: "space-between",
+								alignItems: "center",
+							}}
+						>
+							<h2 style={{ margin: 0 }}>Ask the AI helper</h2>
+							<button
+								className="btn ghost"
+								title={
+									ttsEnabled
+										? "Turn off text-to-speech"
+										: "Turn on text-to-speech"
+								}
+								onClick={() => {
+									if (ttsEnabled) stopSpeaking();
+									setTtsEnabled((v) => !v);
+								}}
+								style={{ padding: "2px 8px" }}
+							>
+								{ttsEnabled ? "🔊 On" : "🔇 Off"}
+							</button>
+						</div>
 						<div className="muted" style={{ marginBottom: 6 }}>
 							Grounded in this activity sheet only. Hints, not
 							answers. Drop or paste an image, use 📷, or the 🎤.
@@ -459,6 +549,36 @@ export default function StudentPage() {
 											/>
 										)}
 										{m.content}
+										{m.role === "assistant" &&
+											m.content &&
+											ttsAvailable() && (
+												<button
+													className="btn ghost"
+													title={
+														speakingIdx === i
+															? "Stop"
+															: "Read aloud"
+													}
+													onClick={() =>
+														speakingIdx === i
+															? stopSpeaking()
+															: speak(
+																	m.content,
+																	i,
+																)
+													}
+													style={{
+														marginLeft: 6,
+														padding: "0 6px",
+														fontSize: 12,
+														verticalAlign: "middle",
+													}}
+												>
+													{speakingIdx === i
+														? "⏹"
+														: "🔊"}
+												</button>
+											)}
 									</div>
 									{m.citations && m.citations.length > 0 && (
 										<div className="citations">
