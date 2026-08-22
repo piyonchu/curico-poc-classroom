@@ -2,6 +2,7 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 import { activity } from "../data/activity";
+import { rainbow } from "../data/rainbow";
 import { pool, resetReadyCache } from "../lib/db";
 import { embed, EMBED_DIM } from "../lib/embed";
 
@@ -85,45 +86,66 @@ async function main() {
       with (lists = 10)
   `);
 
-  console.log(`clearing existing chunks for ${activity.id}…`);
-  await p.query("delete from activity_chunks where activity_id = $1", [activity.id]);
+  const targets = [
+    {
+      id: activity.id,
+      chunks: activity.chunks,
+      guideMdPath: join(__dirname, "..", "data", "activity_guide.md"),
+    },
+    {
+      id: rainbow.id,
+      chunks: rainbow.chunks,
+      guideMdPath: null as string | null,
+    },
+  ];
 
-  // Structured chunks defined in data/activity.ts
-  const structured = activity.chunks.map((c) => ({
-    id: c.id,
-    source: "structured" as const,
-    heading: null as string | null,
-    text: c.text,
-  }));
+  for (const t of targets) {
+    console.log(`\nclearing existing chunks for ${t.id}…`);
+    await p.query("delete from activity_chunks where activity_id = $1", [t.id]);
 
-  // Long-form teacher's guide chunked from data/activity_guide.md
-  const guideMd = readFileSync(join(__dirname, "..", "data", "activity_guide.md"), "utf8");
-  const guideChunks = chunkMarkdown(guideMd).map((c, i) => ({
-    id: `guide_${String(i + 1).padStart(2, "0")}`,
-    source: "guide" as const,
-    heading: c.heading,
-    text: `[${c.heading}]\n${c.text}`,
-  }));
+    const structured = t.chunks.map((c) => ({
+      id: c.id,
+      source: "structured" as const,
+      heading: null as string | null,
+      text: c.text,
+    }));
 
-  const all = [...structured, ...guideChunks];
-  console.log(
-    `embedding + inserting ${all.length} chunks (${structured.length} structured, ${guideChunks.length} from guide)…`,
-  );
-  console.log(`  (first embed downloads the model, ~23 MB — this can take a minute)`);
+    let guideChunks: {
+      id: string;
+      source: "guide";
+      heading: string;
+      text: string;
+    }[] = [];
+    if (t.guideMdPath) {
+      const guideMd = readFileSync(t.guideMdPath, "utf8");
+      guideChunks = chunkMarkdown(guideMd).map((c, i) => ({
+        id: `guide_${String(i + 1).padStart(2, "0")}`,
+        source: "guide" as const,
+        heading: c.heading,
+        text: `[${c.heading}]\n${c.text}`,
+      }));
+    }
 
-  let i = 0;
-  for (const c of all) {
-    const v = await embed(c.text);
-    const lit = `[${v.join(",")}]`;
-    await p.query(
-      `insert into activity_chunks (activity_id, chunk_id, source, heading, text, embedding)
-       values ($1, $2, $3, $4, $5, $6::vector)`,
-      [activity.id, c.id, c.source, c.heading, c.text, lit],
+    const all = [...structured, ...guideChunks];
+    console.log(
+      `  embedding + inserting ${all.length} chunks (${structured.length} structured, ${guideChunks.length} from guide)…`,
     );
-    i++;
-    process.stdout.write(`  ${i}/${all.length} (${c.id})\r`);
+
+    let i = 0;
+    for (const c of all) {
+      const v = await embed(c.text);
+      const lit = `[${v.join(",")}]`;
+      await p.query(
+        `insert into activity_chunks (activity_id, chunk_id, source, heading, text, embedding)
+         values ($1, $2, $3, $4, $5, $6::vector)`,
+        [t.id, c.id, c.source, c.heading, c.text, lit],
+      );
+      i++;
+      process.stdout.write(`  ${i}/${all.length} (${c.id})\r`);
+    }
+    console.log(`\n  done for ${t.id}.`);
   }
-  console.log("\ndone.");
+  console.log("\nall activities seeded.");
 
   resetReadyCache();
   await p.end();

@@ -1,4 +1,5 @@
 import { activity } from "@/data/activity";
+import { activities } from "@/data/activities";
 import { store, type FormativeDraft, type FormativeRecommendation } from "@/lib/store";
 
 export type EvidenceBundle = {
@@ -10,7 +11,11 @@ export type EvidenceBundle = {
 };
 
 function stepTitle(stepId: string) {
-  return activity.steps.find((s) => s.id === stepId)?.title || stepId;
+  for (const a of activities) {
+    const s = a.steps.find((s) => s.id === stepId);
+    if (s) return s.title;
+  }
+  return stepId;
 }
 
 /** Photo + number answers are treated as experiment / measurement evidence. */

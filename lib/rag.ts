@@ -1,4 +1,4 @@
-import { activity } from "@/data/activity";
+import { getActivity } from "@/data/activities";
 import { pool, pgReady } from "@/lib/db";
 import { embed } from "@/lib/embed";
 
@@ -20,7 +20,13 @@ function tokens(s: string): string[] {
     .filter((t) => t && !STOP.has(t) && t.length > 1);
 }
 
-function keywordRetrieve(query: string, stepId: string, k: number): Retrieved[] {
+function keywordRetrieve(
+  query: string,
+  stepId: string,
+  k: number,
+  activityId: string,
+): Retrieved[] {
+  const activity = getActivity(activityId);
   const step = activity.steps.find((s) => s.id === stepId);
   const qTokens = new Set([
     ...tokens(query),
@@ -45,7 +51,9 @@ async function vectorRetrieve(
   query: string,
   stepId: string,
   k: number,
+  activityId: string,
 ): Promise<Retrieved[]> {
+  const activity = getActivity(activityId);
   const step = activity.steps.find((s) => s.id === stepId);
   // Enrich the query with the current step's title/instructions so retrieval
   // stays on-step even for terse student questions ("wait what?").
@@ -73,14 +81,16 @@ export async function retrieve(
   query: string,
   stepId: string,
   k = 4,
+  activityId?: string,
 ): Promise<{ hits: Retrieved[]; backend: "pgvector" | "keyword" }> {
+  const activity = getActivity(activityId);
   if (await pgReady()) {
     try {
-      const hits = await vectorRetrieve(query, stepId, k);
-      return { hits, backend: "pgvector" };
+      const hits = await vectorRetrieve(query, stepId, k, activity.id);
+      if (hits.length) return { hits, backend: "pgvector" };
     } catch (e) {
       console.warn("pgvector retrieve failed, falling back:", e);
     }
   }
-  return { hits: keywordRetrieve(query, stepId, k), backend: "keyword" };
+  return { hits: keywordRetrieve(query, stepId, k, activity.id), backend: "keyword" };
 }

@@ -23,6 +23,8 @@ export type ActivityStep = {
   // or terminology this step depends on. Markdown-lite: paragraphs
   // separated by blank lines; **bold** and _italic_ inline.
   concept?: string;
+  // Optional illustration served from /public. Rendered above the step body.
+  image?: string;
 };
 
 export type Activity = {

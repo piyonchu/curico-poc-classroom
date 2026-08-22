@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { activity } from "@/data/activity";
+import { useSearchParams } from "next/navigation";
+import { getActivity } from "@/data/activities";
+import type { ActivityStep } from "@/data/activity";
+import { getSession } from "@/lib/classroom";
 
 type Msg = {
 	role: "user" | "assistant" | "system";
@@ -12,8 +15,7 @@ type Msg = {
 	flagged?: { misconception_label: string | null } | null;
 };
 
-const STUDENT_ID = "stu_demo_01";
-const PERSIST_KEY = "curico.activity.state.v1";
+const DEFAULT_STUDENT_ID = "stu_demo_01";
 
 type PersistShape = {
 	stepIdx: number;
@@ -25,6 +27,25 @@ type PersistShape = {
 };
 
 export default function StudentPage() {
+	return (
+		<Suspense fallback={null}>
+			<StudentPageInner />
+		</Suspense>
+	);
+}
+
+function StudentPageInner() {
+	const searchParams = useSearchParams();
+	const classId = searchParams.get("class") || "";
+	const activityId = searchParams.get("activity") || "";
+	const activity = getActivity(activityId);
+	const persistKey = `curico.activity.state.${activity.id}.v1`;
+	const [studentId, setStudentIdState] = useState<string>(DEFAULT_STUDENT_ID);
+	useEffect(() => {
+		const s = getSession();
+		if (s?.kind === "student") setStudentIdState(s.id);
+	}, []);
+	const STUDENT_ID = studentId;
 	const [stepIdx, setStepIdx] = useState(0);
 	const [maxReached, setMaxReached] = useState(0);
 	const step = activity.steps[stepIdx];
@@ -60,7 +81,7 @@ export default function StudentPage() {
 		setAttachedImage(null);
 		setSubmitted(false);
 		setUnlockAll(false);
-		try { localStorage.removeItem(PERSIST_KEY); } catch {}
+		try { localStorage.removeItem(persistKey); } catch {}
 	}
 
 	function advance() {
@@ -94,7 +115,7 @@ export default function StudentPage() {
 	const hydrated = useRef(false);
 	useEffect(() => {
 		try {
-			const raw = localStorage.getItem(PERSIST_KEY);
+			const raw = localStorage.getItem(persistKey);
 			if (raw) {
 				const s = JSON.parse(raw) as Partial<PersistShape>;
 				if (typeof s.stepIdx === "number") setStepIdx(s.stepIdx);
@@ -121,7 +142,7 @@ export default function StudentPage() {
 				unlockAll,
 				submitted,
 			};
-			localStorage.setItem(PERSIST_KEY, JSON.stringify(s));
+			localStorage.setItem(persistKey, JSON.stringify(s));
 		} catch {
 			/* quota — ignore */
 		}
@@ -235,6 +256,7 @@ export default function StudentPage() {
 				headers: { "content-type": "application/json" },
 				body: JSON.stringify({
 					studentId: STUDENT_ID,
+					activityId: activity.id,
 					stepId: step.id,
 					currentAnswer: answers[step.id] || "",
 					image: img || undefined,
@@ -378,6 +400,11 @@ export default function StudentPage() {
 					>
 						📋 Lab brief
 					</button>
+					{classId ? (
+						<Link href={`/student-home/${classId}`}>← Back to class</Link>
+					) : (
+						<Link href="/student-home">← Your classes</Link>
+					)}
 					<Link href="/teacher">Teacher view →</Link>
 				</div>
 			</div>
@@ -417,6 +444,11 @@ export default function StudentPage() {
 							</div>
 							<h2>{step.title}</h2>
 						</div>
+						{step.image && (
+							<div className="step-image">
+								<img src={step.image} alt={step.title} />
+							</div>
+						)}
 						{step.concept && (
 							<div className="step-block concept">
 								<div className="block-label">📖 Learn</div>
@@ -985,7 +1017,7 @@ const DEMO_PROMPTS: Record<string, string> = {
 
 // Short one-liner describing why this step exists. Uses per-step overrides
 // where the step's title is too terse to stand alone as a goal.
-function stepGoal(s: (typeof activity.steps)[number]): string {
+function stepGoal(s: ActivityStep): string {
 	const overrides: Record<string, string> = {
 		s01: "Confirm you've read the safety notes and get a one-sentence explanation of any rule you're unsure about, before you touch glassware.",
 		s02: "Put the purpose of today's titration in your own words so we can check your mental model before you start measuring.",
@@ -1014,7 +1046,7 @@ function StepInput({
 	value,
 	onSave,
 }: {
-	step: (typeof activity.steps)[number];
+	step: ActivityStep;
 	value: string;
 	onSave: (v: string) => void;
 }) {

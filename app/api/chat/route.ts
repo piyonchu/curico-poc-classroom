@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { activity } from "@/data/activity";
+import { getActivity } from "@/data/activities";
 import { retrieve } from "@/lib/rag";
 import { store } from "@/lib/store";
 
@@ -43,10 +43,12 @@ Set misconception_id to one of the ids in KNOWN MISCONCEPTIONS if the student's 
 
 function buildUserBlock(opts: {
   studentMessage: string;
+  activityId: string;
   stepId: string;
   currentAnswer?: string;
   retrieved: { id: string; text: string }[];
 }) {
+  const activity = getActivity(opts.activityId);
   const step = activity.steps.find((s) => s.id === opts.stepId)!;
   const known = activity.commonMisconceptions
     .map((m) => `- ${m.id}: ${m.label} — ${m.description}`)
@@ -124,9 +126,11 @@ function parseMeta(text: string): {
 // dumb; real behavior comes from the LLM path.
 function stubReply(
   studentMessage: string,
+  activityId: string,
   stepId: string,
   currentAnswer?: string,
 ) {
+  const activity = getActivity(activityId);
   const step = activity.steps.find((s) => s.id === stepId)!;
   const lower = studentMessage.toLowerCase();
   let meta: any = { misconception_id: null, misconception_label: null, evidence: null, suggested_feedback: null };
@@ -154,19 +158,27 @@ function stubReply(
 export async function POST(req: NextRequest) {
   const body = (await req.json()) as {
     studentId: string;
+    activityId?: string;
     stepId: string;
     messages: ChatMsg[];
     currentAnswer?: string;
     image?: string; // data URL, only on the last user turn
   };
+  const activity = getActivity(body.activityId);
   const last = body.messages[body.messages.length - 1];
   if (!last || last.role !== "user") {
     return NextResponse.json({ error: "no user message" }, { status: 400 });
   }
 
-  const { hits: retrieved, backend } = await retrieve(last.content, body.stepId, 4);
+  const { hits: retrieved, backend } = await retrieve(
+    last.content,
+    body.stepId,
+    4,
+    activity.id,
+  );
   const userBlock = buildUserBlock({
     studentMessage: last.content,
+    activityId: activity.id,
     stepId: body.stepId,
     currentAnswer: body.currentAnswer,
     retrieved,
@@ -182,7 +194,7 @@ export async function POST(req: NextRequest) {
   let meta: any = null;
 
   if (!key) {
-    const s = stubReply(last.content, body.stepId, body.currentAnswer);
+    const s = stubReply(last.content, activity.id, body.stepId, body.currentAnswer);
     reply = s.reply;
     meta = s.meta;
   } else {
