@@ -76,7 +76,7 @@ export default function StudentPage() {
 	const [camOpen, setCamOpen] = useState(false);
 	const [dragOver, setDragOver] = useState(false);
 	const [devOpen, setDevOpen] = useState(false);
-	const [unlockAll, setUnlockAll] = useState(false);
+	const [unlockAll, setUnlockAll] = useState(true);
 	const [briefOpen, setBriefOpen] = useState(false);
 	const [ttsEnabled, setTtsEnabled] = useState(false);
 	const [speakingIdx, setSpeakingIdx] = useState<number | null>(null);

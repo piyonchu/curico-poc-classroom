@@ -70,6 +70,35 @@ STUDENT SAYS:
 ${opts.studentMessage}`;
 }
 
+// Strip reasoning that leaked into the visible content field. Free reasoning
+// models often ignore `reasoning: { enabled: false }` and just dump the chain
+// of thought as prose in front of the final answer. We keep only the final
+// "Response" / "Answer" section, and drop <think>…</think> style tags.
+function stripReasoning(text: string): string {
+  let t = text.replace(/<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>/gi, "");
+  const markers = [
+    /###\s*(?:Final\s+)?Response\s*\n+/i,
+    /###\s*(?:Final\s+)?Answer\s*\n+/i,
+    /\n\s*Response\s*:\s*\n+/i,
+    /\n\s*Final\s+answer\s*:\s*\n+/i,
+    /\n---\s*\n/,
+  ];
+  for (const m of markers) {
+    const match = t.match(m);
+    if (match && typeof match.index === "number") {
+      const after = t.slice(match.index + match[0].length).trim();
+      if (after.length > 20) t = after;
+    }
+  }
+  // If a "### Reasoning" block still sits at the top with no marker after it,
+  // drop up through the last "###" header.
+  if (/^###\s*Reasoning/i.test(t.trim())) {
+    const parts = t.split(/\n###\s+/);
+    if (parts.length > 1) t = parts[parts.length - 1].replace(/^[^\n]*\n/, "");
+  }
+  return t.trim();
+}
+
 function parseMeta(text: string): {
   reply: string;
   meta: {
@@ -80,8 +109,8 @@ function parseMeta(text: string): {
   } | null;
 } {
   const idx = text.lastIndexOf("<<META>>");
-  if (idx === -1) return { reply: text.trim(), meta: null };
-  const reply = text.slice(0, idx).trim();
+  if (idx === -1) return { reply: stripReasoning(text), meta: null };
+  const reply = stripReasoning(text.slice(0, idx));
   const jsonPart = text.slice(idx + "<<META>>".length).trim();
   try {
     return { reply, meta: JSON.parse(jsonPart) };
@@ -213,12 +242,13 @@ export async function POST(req: NextRequest) {
         },
         body: JSON.stringify({
           model,
-          max_tokens: 400,
+          max_tokens: 1200,
+          reasoning: { enabled: false },
           messages: [
             {
               role: "system",
               content:
-                "You are the Curico Classroom AI. Answer the student in 1–3 warm, Socratic sentences. Never give the final answer. Ground your reply in the retrieved context.",
+                "You are the Curico Classroom AI. Answer the student in 1–3 warm, Socratic sentences. Never give the final answer. Ground your reply in the retrieved context. Do NOT emit any <<META>> line — just plain prose.",
             },
             ...priorTurns,
             { role: "user", content: userBlock },
@@ -228,7 +258,7 @@ export async function POST(req: NextRequest) {
       if (retry.ok) {
         const retryData = await retry.json();
         const retryRaw: string = retryData?.choices?.[0]?.message?.content || "";
-        reply = retryRaw.trim() || "(the AI returned an empty reply — try asking again)";
+        reply = stripReasoning(retryRaw) || "(the AI returned an empty reply — try asking again)";
       } else {
         reply = "(the AI returned an empty reply — try asking again)";
       }
